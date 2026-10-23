@@ -15,6 +15,7 @@ class SeriesActivity : FragmentActivity() {
     private lateinit var spinner: Spinner
     private lateinit var lista: ListView
     private lateinit var progressBar: ProgressBar
+    private lateinit var txtSinopse: TextView
     private var seriesId = 0
     private var slug = ""
     private var titulo = ""
@@ -29,6 +30,7 @@ class SeriesActivity : FragmentActivity() {
         spinner = findViewById(R.id.spinnerTemporadas)
         lista = findViewById(R.id.listaEpisodios)
         progressBar = findViewById(R.id.progressSeries)
+        txtSinopse = findViewById(R.id.txtSinopse)
 
         seriesId = intent.getIntExtra("id", 0)
         slug = intent.getStringExtra("slug") ?: ""
@@ -49,6 +51,7 @@ class SeriesActivity : FragmentActivity() {
                 val url = "https://api.themoviedb.org/3/tv/$seriesId?api_key=$apiKey&language=pt-BR"
                 val resp = OkHttpClient().newCall(Request.Builder().url(url).build()).execute().body?.string()
                 val json = JsonParser().parse(resp).asJsonObject
+                val overview = if (json.has("overview") && !json.get("overview").isJsonNull) json.get("overview").asString else "Sinopse não disponível."
                 val seasonsArray = json.getAsJsonArray("seasons")
                 
                 temporadas.clear()
@@ -60,6 +63,7 @@ class SeriesActivity : FragmentActivity() {
                 
                 withContext(Dispatchers.Main) {
                     progressBar.visibility = View.GONE
+                    txtSinopse.text = overview
                     configurarSpinner()
                 }
             } catch (e: Exception) {

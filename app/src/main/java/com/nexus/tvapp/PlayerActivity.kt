@@ -8,12 +8,12 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.ProgressBar
 import android.widget.TextView
-import androidx.appcompat.app.AppCompatActivity
+import androidx.fragment.app.FragmentActivity
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
+import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.ProgressiveMediaSource
-import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.ui.PlayerView
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -22,14 +22,13 @@ import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 
-class PlayerActivity : AppCompatActivity() {
+class PlayerActivity : FragmentActivity() {
 
     private lateinit var playerView: PlayerView
     private lateinit var progressBar: ProgressBar
     private lateinit var txtError: TextView
     private lateinit var hiddenWebView: WebView
     private var player: ExoPlayer? = null
-
     private var linkExtraido = false
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -46,7 +45,6 @@ class PlayerActivity : AppCompatActivity() {
         val slug = intent.getStringExtra("slug") ?: ""
         val titulo = intent.getStringExtra("titulo") ?: ""
 
-        // Tenta buscar o link direto via HTTP
         buscarLinkDireto(categoria, slug, titulo)
     }
 
@@ -59,7 +57,6 @@ class PlayerActivity : AppCompatActivity() {
                 val response = client.newCall(request).execute()
                 val html = response.body?.string() ?: ""
 
-                // Procura link do Wasabi
                 val regex = Regex("https://s3\\.us-central-1\\.wasabisys\\.com[^\"\\\\]+?\\.mp4[^\"\\\\]*")
                 val match = regex.find(html)
 
@@ -68,13 +65,12 @@ class PlayerActivity : AppCompatActivity() {
                         val linkLimpo = match.value.replace("\\u0026", "&").replace("\\", "")
                         tocarVideo(linkLimpo)
                     } else {
-                        // Se não achou no HTML (comum em filmes), usa o WebView Invisível
                         interceptarComWebView(urlPagina)
                     }
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
-                    interceptarComWebView(urlPagina) // Tenta WebView se a rede falhar
+                    interceptarComWebView(urlPagina)
                 }
             }
         }
@@ -98,7 +94,6 @@ class PlayerActivity : AppCompatActivity() {
     private fun tocarVideo(urlVideo: String) {
         progressBar.visibility = View.GONE
 
-        // Configurando o dataSource para enganar o Wasabi (Range: bytes=0-1)
         val dataSourceFactory = DefaultHttpDataSource.Factory()
             .setUserAgent("ExoPlayerLib/2.18.1")
             .setAllowCrossProtocolRedirects(true)
@@ -106,7 +101,6 @@ class PlayerActivity : AppCompatActivity() {
 
         player = ExoPlayer.Builder(this).build().also { exoPlayer ->
             playerView.player = exoPlayer
-            
             val mediaItem = MediaItem.fromUri(urlVideo)
             val mediaSource = ProgressiveMediaSource.Factory(dataSourceFactory)
                 .createMediaSource(mediaItem)

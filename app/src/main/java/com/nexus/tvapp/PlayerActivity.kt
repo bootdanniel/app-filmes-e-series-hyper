@@ -56,7 +56,7 @@ class PlayerActivity : FragmentActivity() {
                 val response = client.newCall(request).execute()
                 val html = response.body?.string() ?: ""
 
-                val regex = Regex("""https://s3\.us-central-1\.wasabisys\.com[^"\\]+?\.mp4[^"\\]*""")
+                val regex = Regex("""https://s3\.us-central-1\.wasabisys\.com[^"]+?\.mp4[^"]*""")
                 val match = regex.find(html)
 
                 withContext(Dispatchers.Main) {

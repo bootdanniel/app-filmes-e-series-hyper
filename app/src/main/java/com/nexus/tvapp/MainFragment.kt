@@ -2,7 +2,6 @@ package com.nexus.tvapp
 
 import android.content.Intent
 import android.os.Bundle
-import android.util.Log
 import android.view.View
 import androidx.leanback.app.RowsSupportFragment
 import androidx.leanback.widget.*
@@ -19,6 +18,7 @@ class MainFragment : RowsSupportFragment() {
         adapter = rowsAdapter
         onItemViewClickedListener = OnItemViewClickedListener { _, item, _, _ ->
             if (item is Filme) {
+                Logger.log("MainFragment", "Clicou em: ${item.title} | Categoria: ${item.categoria} | Slug: ${item.slug}")
                 val intent = Intent(requireContext(), PlayerActivity::class.java)
                 intent.putExtra("categoria", item.categoria)
                 intent.putExtra("slug", item.slug)
@@ -35,6 +35,7 @@ class MainFragment : RowsSupportFragment() {
     }
 
     private fun carregarCatalogo() {
+        Logger.log("MainFragment", "Iniciando leitura do JSON...")
         scope.launch {
             val filmes = withContext(Dispatchers.IO) {
                 try {
@@ -44,11 +45,12 @@ class MainFragment : RowsSupportFragment() {
                             Gson().fromJson<List<Filme>>(reader, tipo) ?: emptyList()
                         }
                 } catch (e: Exception) {
-                    Log.e("MainFragment", "Erro JSON", e)
+                    Logger.log("MainFragment", "ERRO ao ler JSON: ${e.message}")
                     emptyList()
                 }
             }
 
+            Logger.log("MainFragment", "JSON carregado! Total de itens: ${filmes.size}")
             rowsAdapter.clear()
             adicionarFileira("Filmes", filmes.filter { it.categoria == "filmes" })
             adicionarFileira("Séries", filmes.filter { it.categoria == "series" })

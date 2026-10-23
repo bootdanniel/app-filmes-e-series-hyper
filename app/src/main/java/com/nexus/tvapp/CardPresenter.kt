@@ -13,8 +13,8 @@ class CardPresenter : Presenter() {
 
     override fun onCreateViewHolder(parent: ViewGroup): ViewHolder {
         val density = parent.context.resources.displayMetrics.density
-        cardWidthPx = (150 * density).toInt()
-        cardHeightPx = (225 * density).toInt()
+        cardWidthPx = (140 * density).toInt() // Um pouco menor
+        cardHeightPx = (210 * density).toInt()
 
         val card = ImageCardView(parent.context).apply {
             isFocusable = true
@@ -22,6 +22,13 @@ class CardPresenter : Presenter() {
             setMainImageDimensions(cardWidthPx, cardHeightPx)
             setMainImageScaleType(android.widget.ImageView.ScaleType.CENTER_CROP)
             setInfoAreaBackgroundColor(Color.parseColor("#1F1F1F"))
+            // Adiciona margem entre as capas
+            val params = ViewGroup.MarginLayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+            params.setMargins(16, 16, 16, 16)
+            layoutParams = params
         }
         return ViewHolder(card)
     }

@@ -3,8 +3,20 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="#141414">
+    
     <FrameLayout
         android:id="@+id/main_frame"
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
+
+    <!-- Botão Flutuante de Log -->
+    <Button
+        android:id="@+id/btnShowLog"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top|end"
+        android:layout_margin="16dp"
+        android:text="LOG"
+        android:backgroundTint="#E50914"
+        android:textColor="#FFFFFF" />
 </FrameLayout>

@@ -2,6 +2,8 @@ package com.nexus.tvapp
 
 import android.annotation.SuppressLint
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.View
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
@@ -45,12 +47,14 @@ class PlayerActivity : FragmentActivity() {
         val slug = intent.getStringExtra("slug") ?: ""
         val titulo = intent.getStringExtra("titulo") ?: ""
 
-        buscarLinkDireto(categoria, slug, titulo)
+        Logger.log("Player", "Abrindo Player para: $titulo ($categoria/$slug)")
+        buscarLinkDireto(categoria, slug)
     }
 
-    private fun buscarLinkDireto(categoria: String, slug: String, titulo: String) {
+    private fun buscarLinkDireto(categoria: String, slug: String) {
         CoroutineScope(Dispatchers.IO).launch {
             val urlPagina = "https://hyper.hyperapps.site/$categoria/$slug"
+            Logger.log("Player", "Buscando HTML: $urlPagina")
             try {
                 val client = OkHttpClient()
                 val request = Request.Builder().url(urlPagina).header("User-Agent", "Mozilla/5.0").build()
@@ -62,14 +66,17 @@ class PlayerActivity : FragmentActivity() {
 
                 withContext(Dispatchers.Main) {
                     if (match != null) {
+                        Logger.log("Player", "Link encontrado no HTML! (Série/Episódio)")
                         val linkLimpo = match.value.replace("\\u0026", "&").replace("\\", "")
                         tocarVideo(linkLimpo)
                     } else {
+                        Logger.log("Player", "Link não achado no HTML. Iniciando WebView invisível (Filme)...")
                         interceptarComWebView(urlPagina)
                     }
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
+                    Logger.log("Player", "Erro na rede: ${e.message}. Tentando WebView...")
                     interceptarComWebView(urlPagina)
                 }
             }
@@ -83,16 +90,28 @@ class PlayerActivity : FragmentActivity() {
                 val reqUrl = request?.url.toString()
                 if (reqUrl.contains(".mp4") && !linkExtraido) {
                     linkExtraido = true
+                    Logger.log("Player", "WebView interceptou o MP4 com sucesso!")
                     runOnUiThread { tocarVideo(reqUrl) }
                 }
                 return super.shouldInterceptRequest(view, request)
             }
         }
         hiddenWebView.loadUrl(url)
+
+        // Se o WebView demorar mais de 15 segundos, avisa o usuário e mostra o erro
+        Handler(Looper.getMainLooper()).postDelayed({
+            if (!linkExtraido) {
+                Logger.log("Player", "ERRO: O WebView passou de 15 segundos e não achou o vídeo.")
+                progressBar.visibility = View.GONE
+                txtError.visibility = View.VISIBLE
+                txtError.text = "Não foi possível extrair o link do vídeo. (Timeout no WebView)"
+            }
+        }, 15000)
     }
 
     private fun tocarVideo(urlVideo: String) {
         progressBar.visibility = View.GONE
+        Logger.log("Player", "Iniciando ExoPlayer com a URL: ${urlVideo.take(50)}...")
 
         val dataSourceFactory = DefaultHttpDataSource.Factory()
             .setUserAgent("ExoPlayerLib/2.18.1")
@@ -111,6 +130,7 @@ class PlayerActivity : FragmentActivity() {
 
             exoPlayer.addListener(object : Player.Listener {
                 override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+                    Logger.log("Player", "ERRO no ExoPlayer: ${error.message}")
                     txtError.visibility = View.VISIBLE
                     txtError.text = "Erro ao tocar: ${error.message}"
                     progressBar.visibility = View.GONE

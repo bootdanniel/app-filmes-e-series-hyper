@@ -48,7 +48,7 @@ class SeriesActivity : FragmentActivity() {
             try {
                 val url = "https://api.themoviedb.org/3/tv/$seriesId?api_key=$apiKey&language=pt-BR"
                 val resp = OkHttpClient().newCall(Request.Builder().url(url).build()).execute().body?.string()
-                val json = JsonParser.parseString(resp).asJsonObject
+                val json = JsonParser().parse(resp).asJsonObject
                 val seasonsArray = json.getAsJsonArray("seasons")
                 
                 temporadas.clear()
@@ -89,7 +89,7 @@ class SeriesActivity : FragmentActivity() {
             try {
                 val url = "https://api.themoviedb.org/3/tv/$seriesId/season/$temp?api_key=$apiKey&language=pt-BR"
                 val resp = OkHttpClient().newCall(Request.Builder().url(url).build()).execute().body?.string()
-                val json = JsonParser.parseString(resp).asJsonObject
+                val json = JsonParser().parse(resp).asJsonObject
                 val epsArray = json.getAsJsonArray("episodes")
                 
                 episodios.clear()

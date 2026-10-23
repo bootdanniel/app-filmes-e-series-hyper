@@ -2,12 +2,7 @@ package com.nexus.tvapp
 
 import android.annotation.SuppressLint
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
 import android.view.View
-import android.webkit.WebResourceRequest
-import android.webkit.WebView
-import android.webkit.WebViewClient
 import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.fragment.app.FragmentActivity
@@ -29,11 +24,8 @@ class PlayerActivity : FragmentActivity() {
     private lateinit var playerView: PlayerView
     private lateinit var progressBar: ProgressBar
     private lateinit var txtError: TextView
-    private lateinit var hiddenWebView: WebView
     private var player: ExoPlayer? = null
-    private var linkExtraido = false
 
-    @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_player)
@@ -41,19 +33,20 @@ class PlayerActivity : FragmentActivity() {
         playerView = findViewById(R.id.player_view)
         progressBar = findViewById(R.id.progressBar)
         txtError = findViewById(R.id.txtError)
-        hiddenWebView = findViewById(R.id.hiddenWebView)
 
         val categoria = intent.getStringExtra("categoria") ?: ""
         val slug = intent.getStringExtra("slug") ?: ""
         val titulo = intent.getStringExtra("titulo") ?: ""
 
         Logger.log("Player", "Abrindo Player para: $titulo ($categoria/$slug)")
-        buscarLinkDireto(categoria, slug)
+        
+        // A MÁGICA ACONTECE AQUI: Adicionamos o /assistir no final da URL
+        val urlPagina = "https://hyper.hyperapps.site/$categoria/$slug/assistir"
+        buscarLinkDireto(urlPagina)
     }
 
-    private fun buscarLinkDireto(categoria: String, slug: String) {
+    private fun buscarLinkDireto(urlPagina: String) {
         CoroutineScope(Dispatchers.IO).launch {
-            val urlPagina = "https://hyper.hyperapps.site/$categoria/$slug"
             Logger.log("Player", "Buscando HTML: $urlPagina")
             try {
                 val client = OkHttpClient()
@@ -61,52 +54,31 @@ class PlayerActivity : FragmentActivity() {
                 val response = client.newCall(request).execute()
                 val html = response.body?.string() ?: ""
 
+                // Procura o link do Wasabi no HTML da página /assistir
                 val regex = Regex("https://s3\\.us-central-1\\.wasabisys\\.com[^\"\\\\]+?\\.mp4[^\"\\\\]*")
                 val match = regex.find(html)
 
                 withContext(Dispatchers.Main) {
                     if (match != null) {
-                        Logger.log("Player", "Link encontrado no HTML! (Série/Episódio)")
+                        Logger.log("Player", "Link encontrado no HTML com sucesso!")
                         val linkLimpo = match.value.replace("\\u0026", "&").replace("\\", "")
                         tocarVideo(linkLimpo)
                     } else {
-                        Logger.log("Player", "Link não achado no HTML. Iniciando WebView invisível (Filme)...")
-                        interceptarComWebView(urlPagina)
+                        Logger.log("Player", "ERRO: Link não encontrado no HTML do /assistir")
+                        progressBar.visibility = View.GONE
+                        txtError.visibility = View.VISIBLE
+                        txtError.text = "Link do vídeo não encontrado."
                     }
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
-                    Logger.log("Player", "Erro na rede: ${e.message}. Tentando WebView...")
-                    interceptarComWebView(urlPagina)
+                    Logger.log("Player", "Erro na rede: ${e.message}")
+                    progressBar.visibility = View.GONE
+                    txtError.visibility = View.VISIBLE
+                    txtError.text = "Erro de rede: ${e.message}"
                 }
             }
         }
-    }
-
-    private fun interceptarComWebView(url: String) {
-        hiddenWebView.settings.javaScriptEnabled = true
-        hiddenWebView.webViewClient = object : WebViewClient() {
-            override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): android.webkit.WebResourceResponse? {
-                val reqUrl = request?.url.toString()
-                if (reqUrl.contains(".mp4") && !linkExtraido) {
-                    linkExtraido = true
-                    Logger.log("Player", "WebView interceptou o MP4 com sucesso!")
-                    runOnUiThread { tocarVideo(reqUrl) }
-                }
-                return super.shouldInterceptRequest(view, request)
-            }
-        }
-        hiddenWebView.loadUrl(url)
-
-        // Se o WebView demorar mais de 15 segundos, avisa o usuário e mostra o erro
-        Handler(Looper.getMainLooper()).postDelayed({
-            if (!linkExtraido) {
-                Logger.log("Player", "ERRO: O WebView passou de 15 segundos e não achou o vídeo.")
-                progressBar.visibility = View.GONE
-                txtError.visibility = View.VISIBLE
-                txtError.text = "Não foi possível extrair o link do vídeo. (Timeout no WebView)"
-            }
-        }, 15000)
     }
 
     private fun tocarVideo(urlVideo: String) {
@@ -133,7 +105,6 @@ class PlayerActivity : FragmentActivity() {
                     Logger.log("Player", "ERRO no ExoPlayer: ${error.message}")
                     txtError.visibility = View.VISIBLE
                     txtError.text = "Erro ao tocar: ${error.message}"
-                    progressBar.visibility = View.GONE
                 }
             })
         }

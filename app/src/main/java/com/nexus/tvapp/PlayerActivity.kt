@@ -39,7 +39,13 @@ class PlayerActivity : FragmentActivity() {
 
         Logger.log("Player", "Abrindo Player para: $titulo ($categoria/$slug)")
 
-        val urlPagina = "https://hyper.hyperapps.site/$categoria/$slug/assistir"
+        val temporada = intent.getIntExtra("temporada", -1)
+        val episodio = intent.getIntExtra("episodio", -1)
+        val urlPagina = if (temporada != -1 && episodio != -1) {
+            "https://hyper.hyperapps.site/series/$slug/temporada/$temporada/episodio/$episodio"
+        } else {
+            "https://hyper.hyperapps.site/$categoria/$slug/assistir"
+        }
         buscarLinkDireto(urlPagina)
     }
 

@@ -19,11 +19,19 @@ class MainFragment : RowsSupportFragment() {
         onItemViewClickedListener = OnItemViewClickedListener { _, item, _, _ ->
             if (item is Filme) {
                 Logger.log("MainFragment", "Clicou em: ${item.title} | Categoria: ${item.categoria} | Slug: ${item.slug}")
-                val intent = Intent(requireContext(), PlayerActivity::class.java)
-                intent.putExtra("categoria", item.categoria)
-                intent.putExtra("slug", item.slug)
-                intent.putExtra("titulo", item.title)
-                startActivity(intent)
+                if (item.categoria == "series") {
+                    val intent = Intent(requireContext(), SeriesActivity::class.java)
+                    intent.putExtra("id", item.id)
+                    intent.putExtra("slug", item.slug)
+                    intent.putExtra("titulo", item.title)
+                    startActivity(intent)
+                } else {
+                    val intent = Intent(requireContext(), PlayerActivity::class.java)
+                    intent.putExtra("categoria", item.categoria)
+                    intent.putExtra("slug", item.slug)
+                    intent.putExtra("titulo", item.title)
+                    startActivity(intent)
+                }
             }
         }
     }

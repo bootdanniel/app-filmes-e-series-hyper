@@ -7,7 +7,7 @@ import android.widget.TextView
 import androidx.fragment.app.FragmentActivity
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
-import androidx.media3.datasource.DefaultHttpDataSource
+import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.ProgressiveMediaSource
 import androidx.media3.ui.PlayerView
@@ -39,7 +39,6 @@ class PlayerActivity : FragmentActivity() {
 
         Logger.log("Player", "Abrindo Player para: $titulo ($categoria/$slug)")
 
-        // ✅ ROTA CORRETA: /assistir
         val urlPagina = "https://hyper.hyperapps.site/$categoria/$slug/assistir"
         buscarLinkDireto(urlPagina)
     }
@@ -57,7 +56,6 @@ class PlayerActivity : FragmentActivity() {
                 val response = client.newCall(request).execute()
                 val html = response.body?.string() ?: ""
 
-                // Regex que captura o link do Wasabi (mp4)
                 val regex = Regex("""https://s3\.us-central-1\.wasabisys\.com[^"\\]+?\.mp4[^"\\]*""")
                 val match = regex.find(html)
 
@@ -88,13 +86,16 @@ class PlayerActivity : FragmentActivity() {
 
     private fun tocarVideo(urlVideo: String) {
         progressBar.visibility = View.GONE
-        Logger.log("Player", "Iniciando ExoPlayer...")
+        Logger.log("Player", "Iniciando ExoPlayer com OkHttpDataSource...")
 
-        // Configuração para evitar o 403 do Wasabi
-        val dataSourceFactory = DefaultHttpDataSource.Factory()
-            .setUserAgent("ExoPlayerLib/2.18.1")
-            .setAllowCrossProtocolRedirects(true)
-            .setDefaultRequestProperties(mapOf("Range" to "bytes=0-1"))
+        val httpClient = OkHttpClient.Builder()
+            .followRedirects(true)
+            .followSslRedirects(true)
+            .build()
+
+        val dataSourceFactory = OkHttpDataSource.Factory(httpClient)
+            .setUserAgent("ExoPlayerLib/1.3.1")
+            .setDefaultRequestProperties(mapOf("Referer" to "https://hyper.hyperapps.site/"))
 
         player = ExoPlayer.Builder(this).build().also { exoPlayer ->
             playerView.player = exoPlayer

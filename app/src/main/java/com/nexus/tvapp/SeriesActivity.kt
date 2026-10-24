@@ -9,6 +9,7 @@ import com.google.gson.JsonParser
 import kotlinx.coroutines.*
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import java.net.URLEncoder
 
 class SeriesActivity : FragmentActivity() {
     private val apiKey = "5a4258a8c65fdc557abc5818a359ba5f"
@@ -16,7 +17,8 @@ class SeriesActivity : FragmentActivity() {
     private lateinit var lista: ListView
     private lateinit var progressBar: ProgressBar
     private lateinit var txtSinopse: TextView
-    private var seriesId = 0
+    
+    private var tmdbId = 0
     private var slug = ""
     private var titulo = ""
     
@@ -32,50 +34,86 @@ class SeriesActivity : FragmentActivity() {
         progressBar = findViewById(R.id.progressSeries)
         txtSinopse = findViewById(R.id.txtSinopse)
 
-        seriesId = intent.getIntExtra("id", 0)
         slug = intent.getStringExtra("slug") ?: ""
         titulo = intent.getStringExtra("titulo") ?: ""
 
-        if (seriesId == 0) {
-            Logger.log("Series", "Erro: ID do TMDB não recebido")
+        if (titulo.isEmpty()) {
+            Logger.log("Series", "Erro: Titulo nao recebido")
             finish()
             return
         }
-        carregarTemporadas()
+        
+        Logger.log("Series", "Buscando ID no TMDB para o titulo: $titulo")
+        buscarIdTmdb()
+    }
+
+    private fun buscarIdTmdb() {
+        progressBar.visibility = View.VISIBLE
+        txtSinopse.text = "Buscando dados da série..."
+        
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val query = URLEncoder.encode(titulo, "UTF-8")
+                val urlBusca = "https://api.themoviedb.org/3/search/tv?api_key=$apiKey&query=$query&language=pt-BR"
+                
+                val respBusca = OkHttpClient().newCall(Request.Builder().url(urlBusca).build()).execute().body?.string()
+                val jsonBusca = JsonParser().parse(respBusca).asJsonObject
+                val results = jsonBusca.getAsJsonArray("results")
+                
+                if (results != null && results.size() > 0) {
+                    tmdbId = results[0].asJsonObject.get("id").asInt
+                    Logger.log("Series", "ID do TMDB encontrado: $tmdbId")
+                    carregarTemporadas()
+                } else {
+                    withContext(Dispatchers.Main) {
+                        progressBar.visibility = View.GONE
+                        txtSinopse.text = "Série não encontrada no TMDB."
+                    }
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    progressBar.visibility = View.GONE
+                    txtSinopse.text = "Erro ao buscar no TMDB: ${e.message}"
+                }
+            }
+        }
     }
 
     private fun carregarTemporadas() {
-        progressBar.visibility = View.VISIBLE
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                val url = "https://api.themoviedb.org/3/tv/$seriesId?api_key=$apiKey&language=pt-BR"
+                val url = "https://api.themoviedb.org/3/tv/$tmdbId?api_key=$apiKey&language=pt-BR"
                 val resp = OkHttpClient().newCall(Request.Builder().url(url).build()).execute().body?.string()
                 val json = JsonParser().parse(resp).asJsonObject
+                
                 val overview = if (json.has("overview") && !json.get("overview").isJsonNull) json.get("overview").asString else "Sinopse não disponível."
                 val seasonsArray = json.getAsJsonArray("seasons")
                 
                 temporadas.clear()
                 for (i in 0 until seasonsArray.size()) {
-                    val s = seasonsArray[i].asJsonObject
-                    val num = s.get("season_number").asInt
-                    if (num > 0) temporadas.add(num) // Ignora temporada 0 (especiais)
+                    val num = seasonsArray[i].asJsonObject.get("season_number").asInt
+                    if (num > 0) temporadas.add(num)
                 }
                 
                 withContext(Dispatchers.Main) {
                     progressBar.visibility = View.GONE
-                    txtSinopse.text = overview
+                    txtSinopse.text = if (overview.isEmpty()) "Sinopse não disponível." else overview
                     configurarSpinner()
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) { 
                     progressBar.visibility = View.GONE
-                    Logger.log("Series", "Erro TMDB Temporadas: ${e.message}")
+                    txtSinopse.text = "Erro ao carregar temporadas: ${e.message}"
                 }
             }
         }
     }
 
     private fun configurarSpinner() {
+        if (temporadas.isEmpty()) {
+            txtSinopse.text = "Nenhuma temporada encontrada."
+            return
+        }
         val adapter = ArrayAdapter(this, R.layout.item_episodio, temporadas.map { "Temporada $it" })
         spinner.adapter = adapter
         spinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
@@ -84,14 +122,15 @@ class SeriesActivity : FragmentActivity() {
             }
             override fun onNothingSelected(parent: AdapterView<*>?) {}
         }
-        if (temporadas.isNotEmpty()) carregarEpisodios(temporadas[0])
+        carregarEpisodios(temporadas[0])
     }
 
     private fun carregarEpisodios(temp: Int) {
         progressBar.visibility = View.VISIBLE
+        lista.adapter = null
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                val url = "https://api.themoviedb.org/3/tv/$seriesId/season/$temp?api_key=$apiKey&language=pt-BR"
+                val url = "https://api.themoviedb.org/3/tv/$tmdbId/season/$temp?api_key=$apiKey&language=pt-BR"
                 val resp = OkHttpClient().newCall(Request.Builder().url(url).build()).execute().body?.string()
                 val json = JsonParser().parse(resp).asJsonObject
                 val epsArray = json.getAsJsonArray("episodes")
@@ -120,7 +159,9 @@ class SeriesActivity : FragmentActivity() {
                     }
                 }
             } catch (e: Exception) {
-                withContext(Dispatchers.Main) { progressBar.visibility = View.GONE }
+                withContext(Dispatchers.Main) { 
+                    progressBar.visibility = View.GONE 
+                }
             }
         }
     }
